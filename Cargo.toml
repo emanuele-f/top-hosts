@@ -1,0 +1,12 @@
+[package]
+name = "test2_pcap"
+version = "0.1.0"
+authors = ["emanuele-f <black.silver@hotmail.it>"]
+
+[dependencies]
+libc = "0.2"
+pcap = { version = "0.7", features = ["tokio"] }
+etherparse = "0.5.0"
+eui48 = "*"
+log = "*"
+simple_logger = "*"
