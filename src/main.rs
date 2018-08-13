@@ -3,6 +3,7 @@
 extern crate libc;
 extern crate eui48;
 extern crate pcap;
+extern crate ndpi;
 extern crate etherparse;
 extern crate simple_logger;
 

@@ -36,6 +36,15 @@ pub enum PacketDir {
   Dst2Src
 }
 
+impl PacketDir {
+  pub fn is_src2_dest(&self) -> bool {
+    match self {
+      PacketDir::Src2Dst => true,
+      PacketDir::Dst2Src => false,
+    }
+  }
+}
+
 #[derive(Debug)]
 pub enum L4Proto {
   TCP,

@@ -1,6 +1,8 @@
 use etherparse::{SlicedPacket,LinkSlice,InternetSlice,TransportSlice};
 
+use std::cmp::max;
 use pcap::PacketHeader;
+use ndpi::DetectionModule;
 
 use super::generic_hash::GenericHash;
 use super::flow::Flow;
@@ -9,10 +11,12 @@ use super::types::*;
 
 const FLOW_IDLE_TIMEOUT_SEC: i64 = 60;
 const HOST_IDLE_TIMEOUT_SEC: i64 = 300;
+const MAX_PACKETS_BEFORE_DETECTION_GIVEUP: u32 = 8;
 
 pub struct PacketHandler {
   flows: GenericHash<PacketTuple, Flow>,
   hosts: GenericHash<u32, Host>,
+  detection_module: DetectionModule,
 }
 
 impl PacketHandler {
@@ -20,13 +24,15 @@ impl PacketHandler {
     return PacketHandler {
       flows: GenericHash::new(FLOW_IDLE_TIMEOUT_SEC),
       hosts: GenericHash::new(HOST_IDLE_TIMEOUT_SEC),
+      detection_module: DetectionModule::new(),
     };
   }
 
-  fn parse_tuple(packet: &[u8]) -> Option<(PacketTuple, MacAddress, MacAddress)> {
+  fn parse_tuple(packet: &[u8]) -> Option<(PacketTuple, MacAddress, MacAddress, &[u8])> {
     let mut tuple: PacketTuple = Default::default();
     let mut srcmac: [u8; 6] = Default::default();
     let mut dstmac: [u8; 6] = Default::default();
+    let mut ip_ptr = packet;
 
     match SlicedPacket::from_ethernet(packet) {
       Err(value) => println!("Err {:?}", value),
@@ -59,6 +65,7 @@ impl PacketHandler {
                 let srvip = Ipv4Addr::new(src[0], src[1], src[2], src[3]);
                 let dstip = Ipv4Addr::new(dst[0], dst[1], dst[2], dst[3]);
 
+                ip_ptr = ipv4slice.slice();
                 tuple.saddr = srvip.into();
                 tuple.daddr = dstip.into();
                 tuple.proto = ipv4hdr.protocol;
@@ -100,7 +107,7 @@ impl PacketHandler {
     }
 
     if tuple.ok() {
-      return Some((tuple, MacAddress::new(srcmac), MacAddress::new(dstmac)));
+      return Some((tuple, MacAddress::new(srcmac), MacAddress::new(dstmac), ip_ptr));
     }
 
     None
@@ -108,8 +115,9 @@ impl PacketHandler {
 
   pub fn process_packet(&mut self, header: &PacketHeader, packet: &[u8]) {
     match PacketHandler::parse_tuple(packet) {
-      Some((tuple, srcmac, dstmac)) => {
+      Some((tuple, srcmac, dstmac, ip_ptr)) => {
         let when = header.ts.into();
+        let ip_size = max(packet.len() as isize - (ip_ptr.as_ptr() as isize - packet.as_ptr() as isize), 0);
 
         let srchost = self.hosts.or_insert(tuple.saddr, || Host::new(tuple.saddr.into(), srcmac));
         let dsthost = self.hosts.or_insert(tuple.daddr, || Host::new(tuple.daddr.into(), dstmac));
@@ -125,7 +133,17 @@ impl PacketHandler {
         srchost.borrow_mut().stats.account_packet(when, dir, header.len);
         dsthost.borrow_mut().stats.account_packet(when, dir, header.len);
 
-        println!("{:?} ({} packets, {} bytes)", flow, flow.borrow().stats.packets(), flow.borrow().stats.bytes());
+        if !flow.borrow().is_detection_completed() {
+          let protocol = self.detection_module.dissect_packet(&mut flow.borrow_mut().ndpi_flow, ip_ptr, ip_size as u32, header.ts, dir.is_src2_dest());
+          flow.borrow_mut().set_protocol(protocol);
+
+          if !flow.borrow().is_detection_completed() && flow.borrow().stats.packets() >= MAX_PACKETS_BEFORE_DETECTION_GIVEUP {
+            let protocol = self.detection_module.guess_protocol(tuple.proto, tuple.saddr, tuple.sport, tuple.daddr, tuple.dport);
+            flow.borrow_mut().set_detected_protocol(protocol);
+          }
+        }
+
+        debug!("{:?} [{:?}] ({} packets, {} bytes)", flow.borrow(), self.detection_module.get_protocol_name(&flow.borrow().protocol), flow.borrow().stats.packets(), flow.borrow().stats.bytes());
       },
       None => ()
     }

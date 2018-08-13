@@ -5,6 +5,8 @@ use std::cell::RefCell;
 use super::types::*;
 use super::traffic_stats::TrafficStats;
 use super::generic_hash::LifetimeItem;
+use ndpi::Flow as NdpiFlow;
+use ndpi::NdpiProtocol;
 
 use super::host::Host;
 
@@ -15,6 +17,9 @@ pub struct Flow<> {
   pub sport: u16,
   pub dport: u16,
   pub stats: TrafficStats,
+  pub ndpi_flow: NdpiFlow,
+  pub protocol: NdpiProtocol,
+  detection_completed: bool,
 }
 
 impl Flow {
@@ -26,6 +31,9 @@ impl Flow {
       dport: tuple.dport,
       l4proto: tuple.proto.into(),
       stats: Default::default(),
+      ndpi_flow: NdpiFlow::new(),
+      protocol: Default::default(),
+      detection_completed: false,
     };
   }
 
@@ -35,6 +43,25 @@ impl Flow {
 
   pub fn get_direction(&self, tuple: PacketTuple) -> PacketDir {
     if tuple.sport == self.sport { PacketDir::Src2Dst } else { PacketDir::Dst2Src }
+  }
+
+  /* set protocol */
+  pub fn set_protocol(&mut self, proto: NdpiProtocol) {
+    self.protocol = proto;
+
+    if self.protocol.app_protocol != Default::default() {
+      self.detection_completed = true;
+    }
+  }
+
+  /* set protocol and abort detection */
+  pub fn set_detected_protocol(&mut self, proto: NdpiProtocol) {
+    self.protocol = proto;
+    self.detection_completed = true;
+  }
+
+  pub fn is_detection_completed(&self) -> bool {
+    self.detection_completed
   }
 }
 

@@ -10,3 +10,4 @@ etherparse = "0.5.0"
 eui48 = "*"
 log = "*"
 simple_logger = "*"
+ndpi = { path = "../ndpi" }

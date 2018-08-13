@@ -34,10 +34,11 @@ impl <K: ::std::cmp::Eq + ::std::hash::Hash,V: LifetimeItem + ::std::fmt::Debug>
     self.items.retain(|_k, v| {
       (Rc::strong_count(v) == 1) && {/* this hash is the only owner */
         let tstamp = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
-        let is_idle = (tstamp - v.borrow().get_last_seen().sec) < timeout;
+        let idle_sec = tstamp - v.borrow().get_last_seen().sec;
+        let is_idle = idle_sec > timeout;
 
         if is_idle {
-          debug!("Idle Purge: {:?}", v.borrow());
+          debug!("Purge Idle: {:?} ({} sec idle)", v.borrow(), idle_sec);
         }
 
         is_idle
