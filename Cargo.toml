@@ -5,9 +5,11 @@ authors = ["emanuele-f <black.silver@hotmail.it>"]
 
 [dependencies]
 libc = "0.2"
-pcap = { version = "0.7", features = ["tokio"] }
+pcap = { git = "https://github.com/emanuele-f/pcap", features = ["tokio"] }
 etherparse = "0.5.0"
 eui48 = "*"
-log = "*"
+log = { version = "*", features = ["release_max_level_info"] }
 simple_logger = "*"
 ndpi = { path = "../ndpi" }
+termion = "*"
+tui = "0.2.0"
