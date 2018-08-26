@@ -7,6 +7,7 @@ pub struct Host {
   pub ip: Ipv4Addr,
   pub mac: MacAddress,
   pub stats: TrafficStats,
+  refs: u32,
 }
 
 impl Host {
@@ -15,12 +16,14 @@ impl Host {
       ip: ip,
       mac: mac,
       stats: Default::default(),
+      refs: 0,
     }
   }
 }
 
 impl LifetimeItem for Host {
   fn get_last_seen(&self) -> Timeval { self.stats.last_seen }
+  fn get_refs(&mut self) -> &mut u32 { &mut self.refs }
 }
 
 impl fmt::Debug for Host {

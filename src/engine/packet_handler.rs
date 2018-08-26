@@ -119,31 +119,32 @@ impl PacketHandler {
         let when = header.ts.into();
         let ip_size = max(packet.len() as isize - (ip_ptr.as_ptr() as isize - packet.as_ptr() as isize), 0);
 
-        let srchost = self.hosts.or_insert(tuple.saddr, || Host::new(tuple.saddr.into(), srcmac));
-        let dsthost = self.hosts.or_insert(tuple.daddr, || Host::new(tuple.daddr.into(), dstmac));
-        let flow = self.flows.or_insert(tuple, || Flow::new(tuple, &srchost, &dsthost));
+        let mut srchost = self.hosts.or_insert(tuple.saddr, || Host::new(tuple.saddr.into(), srcmac));
+        let mut dsthost = self.hosts.or_insert(tuple.daddr, || Host::new(tuple.daddr.into(), dstmac));
 
-        if flow.borrow().just_created() {
-          srchost.borrow_mut().mac = srcmac;
-          dsthost.borrow_mut().mac = dstmac;
+        let mut flow = self.flows.or_insert(tuple, || Flow::new(tuple, srchost.clone(), dsthost.clone()));
+
+        if flow.just_created() {
+          srchost.mac = srcmac;
+          dsthost.mac = dstmac;
         }
 
-        let dir = flow.borrow().get_direction(tuple);
-        flow.borrow_mut().stats.account_packet(when, dir, header.len);
-        srchost.borrow_mut().stats.account_packet(when, dir, header.len);
-        dsthost.borrow_mut().stats.account_packet(when, dir, header.len);
+        let dir = flow.get_direction(tuple);
+        flow.stats.account_packet(when, dir, header.len);
+        srchost.stats.account_packet(when, dir, header.len);
+        dsthost.stats.account_packet(when, dir, header.len);
 
-        if !flow.borrow().is_detection_completed() {
-          let protocol = self.detection_module.dissect_packet(&mut flow.borrow_mut().ndpi_flow, ip_ptr, ip_size as u32, header.ts, dir.is_src2_dest());
-          flow.borrow_mut().set_protocol(protocol);
+        if !flow.is_detection_completed() {
+          let protocol = self.detection_module.dissect_packet(&mut flow.ndpi_flow, ip_ptr, ip_size as u32, header.ts, dir.is_src2_dest());
+          flow.set_protocol(protocol);
 
-          if !flow.borrow().is_detection_completed() && flow.borrow().stats.packets() >= MAX_PACKETS_BEFORE_DETECTION_GIVEUP {
+          if !flow.is_detection_completed() && flow.stats.packets() >= MAX_PACKETS_BEFORE_DETECTION_GIVEUP {
             let protocol = self.detection_module.guess_protocol(tuple.proto, tuple.saddr, tuple.sport, tuple.daddr, tuple.dport);
-            flow.borrow_mut().set_detected_protocol(protocol);
+            flow.set_detected_protocol(protocol);
           }
         }
 
-        debug!("{:?} [{:?}] ({} packets, {} bytes)", flow.borrow(), self.detection_module.get_protocol_name(&flow.borrow().protocol), flow.borrow().stats.packets(), flow.borrow().stats.bytes());
+        debug!("{:?} [{:?}] ({} packets, {} bytes)", flow, self.detection_module.get_protocol_name(&flow.protocol), flow.stats.packets(), flow.stats.bytes());
       },
       None => ()
     }

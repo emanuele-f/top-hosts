@@ -5,6 +5,7 @@ pub type Duration = ::std::time::Duration;
 pub type SystemTime = ::std::time::SystemTime;
 pub type Ipv4Addr = ::std::net::Ipv4Addr;
 pub type MacAddress = ::eui48::MacAddress;
+pub type ManagedPtr<T> = super::managed_ptr::ManagedPtr<T>;
 pub const UNIX_EPOCH: SystemTime = ::std::time::UNIX_EPOCH;
 
 pub fn u32_to_ipv4(val: u32) -> Ipv4Addr {

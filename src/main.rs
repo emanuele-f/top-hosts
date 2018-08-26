@@ -54,9 +54,9 @@ fn main() {
     .open().unwrap();
 
   // to set maximum log level
-  set_max_level(LevelFilter::Info);
+  //set_max_level(LevelFilter::Info);
 
-  let mut gui = Ui::new();
+  //let mut gui = Ui::new();
   let mut handler = PacketHandler::new();
   let mut last_purge = SystemTime::now();
   let mut last_redraw = SystemTime::now();
@@ -77,7 +77,7 @@ fn main() {
       handler.purge_idle(&now);
       last_purge = now;
     } else if first_redraw || now.duration_since(last_redraw).unwrap() >= redraw_timeout {
-      gui.draw().unwrap();
+      //gui.draw().unwrap();
       last_redraw = now;
       first_redraw = false;
     } else {
