@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::hash_map::{Iter, IterMut};
 use super::types::*;
 
 pub struct GenericHash<K,V> {
@@ -55,5 +56,13 @@ impl <K: ::std::cmp::Eq + ::std::hash::Hash,V: LifetimeItem + ::std::fmt::Debug>
         !is_idle
       }
     });
+  }
+
+  pub fn iter(&self) -> Iter<K, ManagedPtr<V>> {
+    self.items.iter()
+  }
+
+  pub fn iter_mut(&mut self) -> IterMut<K, ManagedPtr<V>> {
+    self.items.iter_mut()
   }
 }

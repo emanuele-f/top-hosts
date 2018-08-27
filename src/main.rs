@@ -29,7 +29,8 @@ const SNAPLEN: i32 = 0;
 const PROMISC: bool = true;
 const PACKET_TIMEOUT_MS: i32 = 10;
 const PURGE_TIMEOUT_SEC: u64 = 3;
-const REDRAW_TIEMOUT_SEC: u64 = 3;
+const STATS_TIMEOUT_SEC: u64 = 5;
+const REDRAW_TIMEOUT_SEC: u64 = 3;
 
 impl std::convert::From<u8> for L4Proto {
   fn from(proto: u8) -> L4Proto {
@@ -54,14 +55,16 @@ fn main() {
     .open().unwrap();
 
   // to set maximum log level
-  //set_max_level(LevelFilter::Info);
+  set_max_level(LevelFilter::Info);
 
-  //let mut gui = Ui::new();
+  let mut gui = Ui::new();
   let mut handler = PacketHandler::new();
   let mut last_purge = SystemTime::now();
   let mut last_redraw = SystemTime::now();
-  let purge_timeput = Duration::new(PURGE_TIMEOUT_SEC, 0);
-  let redraw_timeout = Duration::new(REDRAW_TIEMOUT_SEC, 0);
+  let mut last_update = SystemTime::now();
+  let purge_timeout = Duration::new(PURGE_TIMEOUT_SEC, 0);
+  let stats_timeout = Duration::new(STATS_TIMEOUT_SEC, 0);
+  let redraw_timeout = Duration::new(REDRAW_TIMEOUT_SEC, 0);
   let mut first_redraw = true;
   let mut running = true;
   let mut stdin = async_stdin().bytes();
@@ -73,11 +76,15 @@ fn main() {
 
     let now = SystemTime::now();
 
-    if now.duration_since(last_purge).unwrap() >= purge_timeput {
+    if now.duration_since(last_update).unwrap() >= stats_timeout {
+      handler.update_stats(&now.into());
+      last_update = now;
+    } else if now.duration_since(last_purge).unwrap() >= purge_timeout {
       handler.purge_idle(&now);
       last_purge = now;
     } else if first_redraw || now.duration_since(last_redraw).unwrap() >= redraw_timeout {
-      //gui.draw().unwrap();
+      let top_flows = handler.top_flows();
+      gui.draw(&top_flows, &handler).unwrap();
       last_redraw = now;
       first_redraw = false;
     } else {

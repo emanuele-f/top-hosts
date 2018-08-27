@@ -1,4 +1,5 @@
 use std::convert;
+use std::ops::Sub;
 use libc::timeval as libc_timeval;
 
 pub type Duration = ::std::time::Duration;
@@ -28,6 +29,25 @@ impl convert::From<libc_timeval> for Timeval {
       sec: val.tv_sec,
       usec: val.tv_usec,
     }
+  }
+}
+
+impl convert::From<SystemTime> for Timeval {
+  fn from(val : SystemTime) -> Timeval {
+    let since_the_epoch = val.duration_since(UNIX_EPOCH).unwrap();
+
+    Timeval {
+      sec: since_the_epoch.as_secs() as i64,
+      usec: since_the_epoch.subsec_micros() as i64,
+    }
+  }
+}
+
+impl Sub for Timeval {
+  type Output = f64;
+
+  fn sub(self, other: Timeval) -> f64 {
+    (self.sec - other.sec) as f64 + ((self.usec - other.usec) as f64 / 1000_000_f64)
   }
 }
 

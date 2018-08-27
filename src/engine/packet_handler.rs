@@ -1,8 +1,8 @@
 use etherparse::{SlicedPacket,LinkSlice,InternetSlice,TransportSlice};
 
-use std::cmp::max;
+use std::cmp::{max, Reverse, Ordering};
 use pcap::PacketHeader;
-use ndpi::DetectionModule;
+use ndpi::{DetectionModule, NdpiProtocol};
 
 use super::generic_hash::GenericHash;
 use super::flow::Flow;
@@ -155,5 +155,44 @@ impl PacketHandler {
 
     self.flows.purge_idle(now);
     self.hosts.purge_idle(now);
+  }
+
+  pub fn update_stats(&mut self, now: &Timeval) {
+    for (_, flow) in self.flows.iter_mut() {
+      flow.stats.update(*now);
+    }
+
+    for (_, host) in self.hosts.iter_mut() {
+      host.stats.update(*now);
+    }
+  }
+
+  pub fn get_protocol_name(&self, proto: &NdpiProtocol) -> String {
+    return self.detection_module.get_protocol_name(proto);
+  }
+
+  pub fn top_hosts(&self) -> Vec<&Host> {
+    // TODO improve
+    let mut v : Vec<&Host> = Vec::new();
+
+    for (_, val) in self.hosts.iter() {
+      v.push(&(**val));
+    }
+
+    v.sort_by_key(|host| Reverse(host.stats.bytes()));
+    v
+  }
+
+  pub fn top_flows(&self) -> Vec<&Flow> {
+    // TODO improve
+    let mut v : Vec<&Flow> = Vec::new();
+
+    for (_, flow) in self.flows.iter() {
+      v.push(&(**flow));
+    }
+
+    //v.sort_by_key(|flow| Reverse(flow.stats.throughput));
+    v.sort_by(|a, b| b.stats.throughput.partial_cmp(&a.stats.throughput).unwrap_or(Ordering::Equal));
+    v
   }
 }

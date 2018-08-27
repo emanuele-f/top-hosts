@@ -2,6 +2,7 @@ use std::fmt;
 use super::types::*;
 use super::traffic_stats::TrafficStats;
 use super::generic_hash::LifetimeItem;
+use std::clone::Clone;
 
 pub struct Host {
   pub ip: Ipv4Addr,
@@ -29,5 +30,16 @@ impl LifetimeItem for Host {
 impl fmt::Debug for Host {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "Host[{}][{}]", self.ip, self.mac)
+  }
+}
+
+impl Clone for Host {
+  fn clone(&self) -> Host {
+    Host {
+      ip: self.ip,
+      mac: self.mac,
+      stats: self.stats.clone(),
+      refs: 0,
+    }
   }
 }
